@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Spinner, Badge, Button, Form, Modal, Card, Row, Col } from 'react-bootstrap';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
@@ -27,25 +28,8 @@ const Categories = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/admin/categories', {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.status === 404) {
-                toast.error('Backend server not found');
-                setCategories([]);
-                setLoading(false);
-                return;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            const response = await api.get('/admin/categories');
+            const data = response.data;
             
             // Handle if data is array or object
             if (Array.isArray(data)) {
@@ -59,7 +43,11 @@ const Categories = () => {
             }
         } catch (error) {
             console.error('Error fetching categories:', error);
-            toast.error('Failed to load categories');
+            if (error.response?.status === 404) {
+                toast.error('Backend server not found');
+            } else {
+                toast.error('Failed to load categories');
+            }
             setCategories([]);
         } finally {
             setLoading(false);
@@ -69,58 +57,37 @@ const Categories = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('admin_token');
             const url = editingCategory 
-                ? `http://localhost:5000/api/admin/categories/${editingCategory.id}`
-                : 'http://localhost:5000/api/admin/categories';
-            const method = editingCategory ? 'PUT' : 'POST';
+                ? `/admin/categories/${editingCategory.id}`
+                : '/admin/categories';
+            const method = editingCategory ? 'put' : 'post';
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    name: categoryName,
-                    description: categoryDescription
-                })
+            const response = await api[method](url, {
+                name: categoryName,
+                description: categoryDescription
             });
 
-            if (response.ok) {
-                toast.success(editingCategory ? 'Category updated' : 'Category created');
-                setShowModal(false);
-                setEditingCategory(null);
-                setCategoryName('');
-                setCategoryDescription('');
-                fetchCategories();
-            } else {
-                toast.error('Operation failed');
-            }
+            toast.success(editingCategory ? 'Category updated' : 'Category created');
+            setShowModal(false);
+            setEditingCategory(null);
+            setCategoryName('');
+            setCategoryDescription('');
+            fetchCategories();
         } catch (error) {
             console.error('Submit error:', error);
-            toast.error('Operation failed');
+            toast.error(error.response?.data?.message || 'Operation failed');
         }
     };
 
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this category?')) {
             try {
-                const token = localStorage.getItem('admin_token');
-                const response = await fetch(`http://localhost:5000/api/admin/categories/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    toast.success('Category deleted');
-                    fetchCategories();
-                } else {
-                    toast.error('Failed to delete category');
-                }
+                await api.delete(`/admin/categories/${id}`);
+                toast.success('Category deleted');
+                fetchCategories();
             } catch (error) {
                 console.error('Delete error:', error);
-                toast.error('Failed to delete category');
+                toast.error(error.response?.data?.message || 'Failed to delete category');
             }
         }
     };
@@ -152,7 +119,27 @@ const Categories = () => {
 
     return (
         <>
-            
+            {/* Stats Cards */}
+            <Row className="g-4 mb-4">
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Total Categories</h6>
+                                    <h3 className="mb-0">{totalCategories}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>📁</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Categories Table */}
             <Card className="shadow-sm">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -16,12 +17,8 @@ const Login = () => {
         setError('');
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await response.json();
+            const response = await api.post('/auth/login', { email, password });
+            const data = response.data;
             
             if (data.user?.role === 'admin') {
                 localStorage.setItem('admin_token', data.token);

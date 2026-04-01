@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Spinner, Badge, Card, Row, Col } from 'react-bootstrap';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
@@ -21,7 +22,6 @@ const Orders = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('admin_token');
-            console.log('Token exists?', !!token);
             
             if (!token) {
                 console.error('No token found');
@@ -30,29 +30,8 @@ const Orders = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/admin/orders', {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            console.log('Response status:', response.status);
-            
-            if (response.status === 404) {
-                console.error('API endpoint not found');
-                toast.error('Backend server not found. Please start the backend server.');
-                setOrders([]);
-                setLoading(false);
-                return;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('Orders data:', data);
+            const response = await api.get('/admin/orders');
+            const data = response.data;
             
             // Handle if data is an array or object
             let ordersArray = [];
@@ -86,7 +65,11 @@ const Orders = () => {
             
         } catch (error) {
             console.error('Error fetching orders:', error);
-            toast.error('Failed to load orders: ' + error.message);
+            if (error.response?.status === 404) {
+                toast.error('Backend server not found');
+            } else {
+                toast.error('Failed to load orders: ' + (error.response?.data?.message || error.message));
+            }
             setOrders([]);
         } finally {
             setLoading(false);
@@ -122,9 +105,81 @@ const Orders = () => {
 
     return (
         <>
-            
-
-            
+            {/* Stats Cards */}
+            <Row className="g-4 mb-4">
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Total Orders</h6>
+                                    <h3 className="mb-0">{stats.total}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>📦</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Pending Orders</h6>
+                                    <h3 className="mb-0">{stats.pending}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>⏳</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Completed Orders</h6>
+                                    <h3 className="mb-0">{stats.completed}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>✅</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Total Revenue</h6>
+                                    <h3 className="mb-0">${stats.revenue.toFixed(2)}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>💰</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Orders Table */}
             <Card className="shadow-sm">

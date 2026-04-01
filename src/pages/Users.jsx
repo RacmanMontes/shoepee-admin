@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Spinner, Badge, Card, Row, Col, Button, Modal, Form } from 'react-bootstrap';
 import toast from 'react-hot-toast';
 import { FiPlus, FiUserPlus, FiEdit2, FiTrash2, FiSave, FiX } from 'react-icons/fi';
+import api from '../services/api';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
@@ -34,25 +35,8 @@ const Users = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/admin/users', {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.status === 404) {
-                toast.error('Backend server not found');
-                setUsers([]);
-                setLoading(false);
-                return;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            const response = await api.get('/admin/users');
+            const data = response.data;
             
             let usersArray = [];
             if (Array.isArray(data)) {
@@ -68,7 +52,11 @@ const Users = () => {
             setUsers(usersArray);
         } catch (error) {
             console.error('Error fetching users:', error);
-            toast.error('Failed to load users: ' + error.message);
+            if (error.response?.status === 404) {
+                toast.error('Backend server not found');
+            } else {
+                toast.error('Failed to load users: ' + (error.response?.data?.message || error.message));
+            }
             setUsers([]);
         } finally {
             setLoading(false);
@@ -78,82 +66,42 @@ const Users = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('admin_token');
-            const response = await fetch('http://localhost:5000/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-
-            if (response.ok) {
-                toast.success('User created successfully');
-                setShowModal(false);
-                resetForm();
-                fetchUsers();
-            } else {
-                const error = await response.json();
-                toast.error(error.message || 'Failed to create user');
-            }
+            await api.post('/auth/register', formData);
+            toast.success('User created successfully');
+            setShowModal(false);
+            resetForm();
+            fetchUsers();
         } catch (error) {
             console.error('Error creating user:', error);
-            toast.error('Failed to create user');
+            toast.error(error.response?.data?.message || 'Failed to create user');
         }
     };
 
     const handleEditUser = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('admin_token');
-            const response = await fetch(`http://localhost:5000/api/admin/users/${editingUser.id}/role`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    role: formData.role
-                })
+            await api.put(`/admin/users/${editingUser.id}/role`, {
+                role: formData.role
             });
-
-            if (response.ok) {
-                toast.success('User role updated successfully');
-                setShowEditModal(false);
-                resetForm();
-                fetchUsers();
-            } else {
-                const error = await response.json();
-                toast.error(error.message || 'Failed to update user');
-            }
+            toast.success('User role updated successfully');
+            setShowEditModal(false);
+            resetForm();
+            fetchUsers();
         } catch (error) {
             console.error('Error updating user:', error);
-            toast.error('Failed to update user');
+            toast.error(error.response?.data?.message || 'Failed to update user');
         }
     };
 
     const handleDeleteUser = async (userId, userName) => {
         if (window.confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
             try {
-                const token = localStorage.getItem('admin_token');
-                const response = await fetch(`http://localhost:5000/api/admin/users/${userId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    toast.success('User deleted successfully');
-                    fetchUsers();
-                } else {
-                    const error = await response.json();
-                    toast.error(error.message || 'Failed to delete user');
-                }
+                await api.delete(`/admin/users/${userId}`);
+                toast.success('User deleted successfully');
+                fetchUsers();
             } catch (error) {
                 console.error('Error deleting user:', error);
-                toast.error('Failed to delete user');
+                toast.error(error.response?.data?.message || 'Failed to delete user');
             }
         }
     };
@@ -221,7 +169,29 @@ const Users = () => {
 
     return (
         <>
-          
+            {/* Stats Cards */}
+            <Row className="g-4 mb-4">
+                {statCards.map((stat, idx) => (
+                    <Col key={idx} md={6} lg={3}>
+                        <Card className="shadow-sm border-0">
+                            <Card.Body>
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 className="text-muted mb-2">{stat.title}</h6>
+                                        <h3 className="mb-0">{stat.value}</h3>
+                                    </div>
+                                    <div 
+                                        className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                        style={{ backgroundColor: `rgba(99, 102, 241, 0.1)`, width: '60px', height: '60px' }}
+                                    >
+                                        <span style={{ fontSize: '24px' }}>{stat.icon}</span>
+                                    </div>
+                                </div>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
 
             {/* Users Table */}
             <Card className="shadow-sm">
@@ -300,7 +270,13 @@ const Users = () => {
                                                 >
                                                     <FiEdit2 size={16} /> Edit
                                                 </Button>
-                                              
+                                                <Button 
+                                                    variant="outline-danger" 
+                                                    size="sm"
+                                                    onClick={() => handleDeleteUser(user.id, `${user.first_name} ${user.last_name}`)}
+                                                >
+                                                    <FiTrash2 size={16} /> Delete
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))

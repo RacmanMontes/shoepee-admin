@@ -5,6 +5,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
+import api from '../services/api';
 
 const Dashboard = () => {
     const [stats, setStats] = useState({
@@ -29,19 +30,8 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
         try {
-            const token = localStorage.getItem('admin_token');
-            const response = await fetch('http://localhost:5000/api/admin/stats', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('Stats data:', data);
+            const response = await api.get('/admin/stats');
+            const data = response.data;
             
             setStats({
                 totalProducts: data.totalProducts || 0,
@@ -57,33 +47,18 @@ const Dashboard = () => {
 
     const fetchChartData = async () => {
         try {
-            const token = localStorage.getItem('admin_token');
-            
             const [ordersRes, revenueRes, categoryRes, productsRes] = await Promise.all([
-                fetch('http://localhost:5000/api/admin/stats/orders-over-time', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                fetch('http://localhost:5000/api/admin/stats/revenue-over-time', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                fetch('http://localhost:5000/api/admin/stats/products-by-category', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                fetch('http://localhost:5000/api/admin/stats/top-products', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                })
+                api.get('/admin/stats/orders-over-time'),
+                api.get('/admin/stats/revenue-over-time'),
+                api.get('/admin/stats/products-by-category'),
+                api.get('/admin/stats/top-products')
             ]);
             
-            const ordersData = ordersRes.ok ? await ordersRes.json() : { data: [] };
-            const revenueData = revenueRes.ok ? await revenueRes.json() : { data: [] };
-            const categoryData = categoryRes.ok ? await categoryRes.json() : { data: [] };
-            const productsData = productsRes.ok ? await productsRes.json() : { data: [] };
-            
             setChartData({
-                ordersData: ordersData.data || [],
-                revenueData: revenueData.data || [],
-                categoryData: categoryData.data || [],
-                productsData: productsData.data || []
+                ordersData: ordersRes.data.data || [],
+                revenueData: revenueRes.data.data || [],
+                categoryData: categoryRes.data.data || [],
+                productsData: productsRes.data.data || []
             });
         } catch (error) {
             console.error('Error fetching chart data:', error);

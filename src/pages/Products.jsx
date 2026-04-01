@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Table, Spinner, Badge, Button, Form, Modal, Card, Row, Col, Image, Alert } from 'react-bootstrap';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const Products = () => {
     const [products, setProducts] = useState([]);
@@ -31,11 +32,8 @@ const Products = () => {
 
     const fetchCategories = async () => {
         try {
-            const token = localStorage.getItem('admin_token');
-            const response = await fetch('/api/admin/categories', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
+            const response = await api.get('/admin/categories');
+            const data = response.data;
             setCategories(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching categories:', error);
@@ -55,18 +53,8 @@ const Products = () => {
                 return;
             }
 
-            const response = await fetch('/api/admin/products', {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            const response = await api.get('/admin/products');
+            const data = response.data;
             
             if (Array.isArray(data)) {
                 setProducts(data);
@@ -81,7 +69,7 @@ const Products = () => {
             }
         } catch (error) {
             console.error('Error fetching products:', error);
-            toast.error('Failed to load products: ' + error.message);
+            toast.error('Failed to load products: ' + (error.response?.data?.message || error.message));
             setProducts([]);
         } finally {
             setLoading(false);
@@ -91,21 +79,12 @@ const Products = () => {
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this product?')) {
             try {
-                const token = localStorage.getItem('admin_token');
-                const response = await fetch(`/api/admin/products/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    toast.success('Product deleted successfully');
-                    fetchProducts();
-                } else {
-                    toast.error('Failed to delete product');
-                }
+                await api.delete(`/admin/products/${id}`);
+                toast.success('Product deleted successfully');
+                fetchProducts();
             } catch (error) {
                 console.error('Delete error:', error);
-                toast.error('Failed to delete product');
+                toast.error(error.response?.data?.message || 'Failed to delete product');
             }
         }
     };
@@ -143,11 +122,8 @@ const Products = () => {
                 const data = await response.json();
                 console.log('📸 Upload response:', data);
                 
-                // Convert full URL to relative path for storage
+                // Use the URL as is (it should be relative)
                 let imageUrl = data.imageUrl;
-                if (imageUrl.includes('localhost:5000')) {
-                    imageUrl = imageUrl.replace('http://localhost:5000', '');
-                }
                 
                 console.log('✅ Processed image URL:', imageUrl);
                 
@@ -177,10 +153,6 @@ const Products = () => {
     const handleAddImageUrlManually = () => {
         if (imageInput && imageInput.trim()) {
             let imageUrl = imageInput.trim();
-            // Convert full URL to relative path if needed
-            if (imageUrl.includes('localhost:5000')) {
-                imageUrl = imageUrl.replace('http://localhost:5000', '');
-            }
             
             const currentImages = Array.isArray(formData.image_urls) ? formData.image_urls : [];
             setFormData(prev => ({
@@ -205,11 +177,10 @@ const Products = () => {
         e.preventDefault();
         
         try {
-            const token = localStorage.getItem('admin_token');
             const url = editingProduct 
-                ? `/api/admin/products/${editingProduct.id}`
-                : '/api/admin/products';
-            const method = editingProduct ? 'PUT' : 'POST';
+                ? `/admin/products/${editingProduct.id}`
+                : '/admin/products';
+            const method = editingProduct ? 'put' : 'post';
 
             // Prepare the data to send
             const submitData = {
@@ -228,32 +199,17 @@ const Products = () => {
             console.log('📤 Submitting product data:', submitData);
             console.log('🖼️ Image URLs being sent:', submitData.image_urls);
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(submitData)
-            });
+            const response = await api[method](url, submitData);
 
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Server response:', result);
-                console.log('🖼️ Saved image URLs:', result.image_urls);
-                
-                toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully');
-                setShowModal(false);
-                resetForm();
-                fetchProducts();
-            } else {
-                const error = await response.json();
-                console.error('❌ Server error:', error);
-                toast.error(error.message || 'Operation failed');
-            }
+            console.log('✅ Server response:', response.data);
+            
+            toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully');
+            setShowModal(false);
+            resetForm();
+            fetchProducts();
         } catch (error) {
             console.error('❌ Submit error:', error);
-            toast.error('Operation failed: ' + error.message);
+            toast.error(error.response?.data?.message || 'Operation failed');
         }
     };
 
@@ -315,8 +271,90 @@ const Products = () => {
 
     const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2"%3E%3Crect x="2" y="2" width="20" height="20" rx="2"%3E%3C/rect%3E%3Cpath d="M8 2v20M16 2v20M2 8h20M2 16h20"%3E%3C/path%3E%3C/svg%3E';
 
+    // Calculate stats
+    const totalProducts = products.length;
+    const lowStock = products.filter(p => p.stock_quantity < 10 && p.stock_quantity > 0).length;
+    const outOfStock = products.filter(p => p.stock_quantity === 0).length;
+    const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0);
+
     return (
         <>
+            {/* Stats Cards */}
+            <Row className="g-4 mb-4">
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Total Products</h6>
+                                    <h3 className="mb-0">{totalProducts}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>📦</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Low Stock</h6>
+                                    <h3 className="mb-0">{lowStock}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>⚠️</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Out of Stock</h6>
+                                    <h3 className="mb-0">{outOfStock}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>❌</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={6} lg={3}>
+                    <Card className="shadow-sm border-0">
+                        <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 className="text-muted mb-2">Inventory Value</h6>
+                                    <h3 className="mb-0">${totalValue.toLocaleString()}</h3>
+                                </div>
+                                <div 
+                                    className="p-3 rounded-circle d-flex align-items-center justify-content-center"
+                                    style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', width: '60px', height: '60px' }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>💰</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+
             {/* Products Table */}
             <Card className="shadow-sm">
                 <Card.Body className="p-0">
