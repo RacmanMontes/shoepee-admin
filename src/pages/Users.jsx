@@ -169,12 +169,7 @@ const Users = () => {
 
     return (
         <>
-<<<<<<< HEAD
-           
-=======
-            
 
->>>>>>> 6b77bd41e29d551a34e1380b05b0217046aefdde
             {/* Users Table */}
             <Card className="shadow-sm">
                 <Card.Body className="p-0">
