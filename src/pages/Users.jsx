@@ -169,29 +169,7 @@ const Users = () => {
 
     return (
         <>
-            {/* Stats Cards */}
-            <Row className="g-4 mb-4">
-                {statCards.map((stat, idx) => (
-                    <Col key={idx} md={6} lg={3}>
-                        <Card className="shadow-sm border-0">
-                            <Card.Body>
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 className="text-muted mb-2">{stat.title}</h6>
-                                        <h3 className="mb-0">{stat.value}</h3>
-                                    </div>
-                                    <div 
-                                        className="p-3 rounded-circle d-flex align-items-center justify-content-center"
-                                        style={{ backgroundColor: `rgba(99, 102, 241, 0.1)`, width: '60px', height: '60px' }}
-                                    >
-                                        <span style={{ fontSize: '24px' }}>{stat.icon}</span>
-                                    </div>
-                                </div>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                ))}
-            </Row>
+            
 
             {/* Users Table */}
             <Card className="shadow-sm">
