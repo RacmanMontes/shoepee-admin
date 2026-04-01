@@ -119,7 +119,11 @@ const Categories = () => {
 
     return (
         <>
+<<<<<<< HEAD
             
+=======
+          
+>>>>>>> 6b77bd41e29d551a34e1380b05b0217046aefdde
 
             {/* Categories Table */}
             <Card className="shadow-sm">
