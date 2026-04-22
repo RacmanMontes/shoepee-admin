@@ -380,6 +380,7 @@ const Products = () => {
                                                 >
                                                     ✏️ Edit
                                                 </Button>
+                                                {/*
                                                 <Button 
                                                     variant="outline-danger" 
                                                     size="sm"
@@ -387,6 +388,7 @@ const Products = () => {
                                                 >
                                                     🗑️ Delete
                                                 </Button>
+                                                   */}
                                             </td>
                                         </tr>
                                     ))
